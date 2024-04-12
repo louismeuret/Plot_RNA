@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>Upload Files</h1>
+        <form action="{{ url_for('upload_files') }}" method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="nativePdb">Native PDB File:</label>
+                <input type="file" class="form-control-file" id="nativePdb" name="nativePdb" accept=".pdb,.gro">
+            </div>
+            <div class="form-group">
+                <label for="trajXtc">Trajectory XTC File:</label>
+                <input type="file" class="form-control-file" id="trajXtc" name="trajXtc" accept=".xtc,.trr,.dcd,.binpos,.netcdf,.mdcrd">
+            </div>
+            <div class="form-group">
+                <label for="trajPdb">Trajectory PDB File:</label>
+                <input type="file" class="form-control-file" id="trajPdb" name="trajPdb" accept=".pdb,.gro">
+            </div>
+            <h2>Select Plots:</h2>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="rmsd" name="rmsd" value="RMSD">
+                <label class="form-check-label" for="rmsd">RMSD</label><br>
+                <input type="checkbox" class="form-check-input" id="ermsd" name="ermsd" value="ERMSD">
+                <label class="form-check-label" for="ermsd">ERMSD</label><br>
+                <input type="checkbox" class="form-check-input" id="torsion" name="torsion" value="TORSION">
+                <label class="form-check-label" for="torsion">TORSION</label><br>
+                <input type="checkbox" class="form-check-input" id="sec_structure" name="sec_structure" value="SEC_STRUCTURE">
+                <label class="form-check-label" for="sec_structure">SEC_STRUCTURE</label><br>
+                <input type="checkbox" class="form-check-input" id="annotate" name="annotate" value="ANNOTATE">
+                <label class="form-check-label" for="annotate">ANNOTATE</label><br>
+                <input type="checkbox" class="form-check-input" id="ds_motif" name="ds_motif" value="DS_MOTIF">
+                <label class="form-check-label" for="ds_motif">DS_MOTIF</label><br>
+                <input type="checkbox" class="form-check-input" id="ss_motif" name="ss_motif" value="SS_MOTIF">
+                <label class="form-check-label" for="ss_motif">SS_MOTIF</label><br>
+                <input type="checkbox" class="form-check-input" id="jcoupling" name="jcoupling" value="JCOUPLING">
+                <label class="form-check-label" for="jcoupling">JCOUPLING</label><br>
+                <input type="checkbox" class="form-check-input" id="escore" name="escore" value="ESCORE">
+                <label class="form-check-label" for="escore">ESCORE</label><br>
+            </div>
+            <button type="submit" class="btn btn-primary">Upload</button>
+        </form>
+    </div>
+
+    <!-- Bootstrap JS (Optional) -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

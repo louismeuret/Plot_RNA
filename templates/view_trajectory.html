@@ -1,0 +1,118 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h1 class="mt-5">Trajectory Viewer</h1>
+<div id="viewport" style="width:600px; height:400px;"></div>
+
+<div id="player-controls" style="margin-top: 10px;">
+    <input type="range" id="frame-slider" min="0" value="0" step="1" style="width: 80%;">
+    <button id="play-pause-button">Play</button>
+</div>
+<!-- <script type='text/javascript'>
+  var graphs = {{graphJSON | safe}};
+  Plotly.plot('chart',graphs,{});
+</script> -->
+
+
+
+<script>
+    var stage;
+    var player; // Define player variable globally
+
+    document.addEventListener("DOMContentLoaded", function () {
+      stage = new NGL.Stage("viewport");
+      var load = "{{ url_for('static', filename=session_id + '/' + native_pdb) }}";
+      if( load ) stage.loadFile( load, { defaultRepresentation: true } ).then( function( comp ){comp.setName("simulation-name");} );
+
+      var struc = "{{ url_for('static', filename=session_id + '/' + native_pdb) }}";
+      var traj = "{{ url_for('static', filename=session_id + '/' + traj_xtc) }}";
+      var deltaTime = NGL.getQuery( "dt" );
+      var timeOffset = NGL.getQuery( "to" );
+      if( deltaTime === undefined ) deltaTime = "0.00";
+      if( timeOffset === undefined ) timeOffset = "0.00";
+      if( struc ){
+        var params = { defaultRepresentation: true };
+        stage.loadFile( struc, params ).then( function( o ){
+          o.setName( "sim" );
+          o.addRepresentation( "licorice", {sele: "not hydrogen", visible: false} );
+          if( traj ) o.addTrajectory( traj, { centerPbc: true, superpose: true, removePbc: true, "deltaTime": parseFloat(deltaTime), "timeOffset": parseFloat(timeOffset) } );
+        } );
+      }
+      var toggleTheme = document.getElementById( "toggleTheme" );
+      var isLight = false;
+      toggleTheme.addEventListener( "click", function(){
+        if( !isLight ){
+          stage.setParameters( { backgroundColor: "white" } );
+          isLight = true;
+        }else{
+          stage.setParameters( { backgroundColor: "black" } );
+          isLight = false;
+        }
+      } );
+      var toggleSpin = document.getElementById( "toggleSpin" );
+      var isSpinning = false;
+      toggleSpin.addEventListener( "click", function(){
+        if( !isSpinning ){
+          stage.setSpin( [ 0, 1, 0 ], 0.01 );
+          isSpinning = true;
+        }else{
+          stage.setSpin( null, null );
+          isSpinning = false;
+        }
+      } );
+      var toggleSideChains = document.getElementById( "toggleSideChains" );
+      toggleSideChains.addEventListener( "click", function(){
+        stage.getRepresentationsByName( "licorice" ).list.forEach( function( repre ){
+          repre.setVisibility( !repre.visible );
+        } );
+      } );
+      var toggleRunMDs = document.getElementById( "toggleRunMDs" );
+      var isRunning = false;
+      toggleRunMDs.addEventListener( "click", function(){
+        var trajComp = stage.getComponentsByName("sim").list[0].trajList[0];
+        player = new NGL.TrajectoryPlayer(trajComp.trajectory, {interpolateType: "spline" }); // Assign to the global player variable
+        if( !isRunning ){
+          player.play();
+          isRunning = true;
+        }else{
+          player.play();
+          player.pause();
+          isRunning = false;
+        }
+      } );
+    });
+    
+    function updateFrame(event) {
+        var frameIndex = parseInt(event.target.value);
+        player.setFrame(frameIndex);
+    }
+
+    function togglePlayPause() {
+        player.toggle();
+        var playPauseButton = document.getElementById('play-pause-button');
+        playPauseButton.textContent = player.isPlaying ? 'Pause' : 'Play';
+    }
+
+    // Attach event listeners
+    document.getElementById('frame-slider').addEventListener('input', updateFrame);
+    document.getElementById('play-pause-button').addEventListener('click', togglePlayPause);
+</script>
+
+<div style="width:500px;">
+    <button id="toggleSpin">spin on/off</button>
+    <button id="toggleTheme">light/dark background</button>
+    <button id="toggleRunMDs">start/stop MD</button>
+    <button id="toggleSideChains">show/hide sidechains</button>
+  </div>
+</div>
+
+<div id='scatter' class='scatter'></div>
+
+<script type="text/javascript">
+  var graphs = {{graphJSON | safe}};
+  Plotly.plot('scatter',graphs,{});        
+</script>
+
+{% endblock %}
+
+
