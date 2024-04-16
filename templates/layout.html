@@ -8,10 +8,6 @@
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="https://unpkg.com/ngl@latest/dist/ngl.js"></script> <!-- Include NGL Viewer -->
-    <script type="text/javascript">
-      var graphs = {{graphJSON | safe}};
-      Plotly.plot('scatter',graphs,{});        
-    </script>
 </head>
 <body>
     <div class="container">

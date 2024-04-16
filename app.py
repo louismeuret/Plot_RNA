@@ -39,6 +39,19 @@ def plot_ermsd(ermsd):
     fig.update_layout(title='ERMSD Scatter Plot', xaxis_title='Frame', yaxis_title='ERMSD Value')
     return fig
 
+def plot_rmsd(rmsd):
+    fig = go.Figure(data=go.Scatter(y=rmsd, mode='markers'))
+    fig.update_layout(title='RMSD Scatter Plot', xaxis_title='Frame', yaxis_title='RMSD Value')
+    return fig
+
+def plot_torsion(torsion):
+    return fig 
+
+def plot_sec_structure(sec_structure):
+    return fig 
+
+
+
 
 
 
@@ -69,33 +82,13 @@ def upload_files():
     app.logger.info("SAVED TRAJECTORY")
     
     selected_plots = []
+
     for plot in ['RMSD','ERMSD', 'TORSION', 'SEC_STRUCTURE', 'ANNOTATE', 'DS_MOTIF', 'SS_MOTIF','JCOUPLING','ESCORE']:  # Adjust based on your available plots
         app.logger.info(plot)
         if plot.lower() in request.form:
             app.logger.info(request.form)
-            if plot == 'RMSD':
-                selected_plots.append(plot)
-            elif plot == 'ERMSD' or 'ermsd':
-                app.logger.info("HERE WE ARE")
-                selected_plots.append(plot)
-            elif plot == 'TORSION':
-                selected_plots.append(plot)
-            elif plot == 'SEC_STRUCTURE':
-                selected_plots.append(plot)
-            elif plot == 'ANNOTATE':
-                selected_plots.append(plot)
-            elif plot == 'DS_MOTIF':
-                selected_plots.append(plot)
-            elif plot == 'SS_MOTIF':
-                selected_plots.append(plot)
-            elif plot == 'JCOUPLING':
-                selected_plots.append(plot)
-            elif plot == 'ESCORE':
-                selected_plots.append(plot)
-            elif plot == 'DOT_BRACKET':
-                selected_plots.append(plot)
-            elif plot == 'GVEC':
-                selected_plots.append(plot)
+            app.logger.info("In the Request part of the code")
+            selected_plots.append(plot)
                 
     
     session['selected_plots'] = selected_plots
@@ -169,8 +162,6 @@ def view_trajectory(session_id, native_pdb, traj_xtc):
     
     # Generate or fetch plot filenames
     plot_filenames = [f'plot_{plot}.png' for plot in selected_plots]
-    
-    
     return render_template('view_trajectory.html', session_id=session_id, native_pdb=native_pdb, traj_xtc=traj_xtc, plot_filenames=plot_filenames,graphJSON=plotly_data)
 
 
