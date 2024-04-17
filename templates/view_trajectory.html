@@ -8,12 +8,6 @@
     <input type="range" id="frame-slider" min="0" value="0" step="1" style="width: 80%;">
     <button id="play-pause-button">Play</button>
 </div>
-<!-- <script type='text/javascript'>
-  var graphs = {{graphJSON | safe}};
-  Plotly.plot('chart',graphs,{});
-</script> -->
-
-
 
 <script>
     var stage;
@@ -106,12 +100,18 @@
   </div>
 </div>
 
-<div id='scatter' class='scatter'></div>
+<body>
+  {% for plot_info in plot_data %}
+      <div id='{{ plot_info[0] }}' class='plot'></div>
+      <div id='text_{{ plot_info[0] }}'>Custom text for {{ plot_info[0] }}</div>   
+      <div id="{{ plot_info[1] }}"></div>
+      <script>
+          var plotData = {{ plot_info[2] | safe }};
+          Plotly.plot('{{ plot_info[1] }}', plotData, {});
+      </script>
+  {% endfor %}
+</body>
 
-<script type="text/javascript">
-  var graphs = {{graphJSON | safe}};
-  Plotly.plot('scatter',graphs,{});        
-</script>
 
 {% endblock %}
 

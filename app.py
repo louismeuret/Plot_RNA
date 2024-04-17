@@ -14,6 +14,7 @@ from MDAnalysis.analysis.align import alignto
 import json
 import barnaba as bb
 import plotly
+from plotly.tools import mpl_to_plotly
 
 app = Flask(__name__)
 app.secret_key = "pi"
@@ -42,6 +43,84 @@ def plot_ermsd(ermsd):
 def plot_rmsd(rmsd):
     fig = go.Figure(data=go.Scatter(y=rmsd, mode='markers'))
     fig.update_layout(title='RMSD Scatter Plot', xaxis_title='Frame', yaxis_title='RMSD Value')
+    return fig
+
+def plot_dotbracket(dotbracket_data):
+    reverse_mapping = {}
+    for frame, dotbracket in enumerate(dotbracket_data, start=1):
+        reverse_mapping.setdefault(dotbracket, []).append(frame)
+
+    # Flatten the data structure and include frame information
+    structures_data = []
+    for dotbracket, frames in reverse_mapping.items():
+        for frame in frames:
+            structures_data.append({
+                'Frame': frame,
+                'DotBracket': dotbracket
+            })
+
+    # Create a DataFrame from the flattened data
+    structures_df = pd.DataFrame(structures_data)
+
+    # Sort the DataFrame by structure and then by frame
+    structures_df.sort_values(by=['DotBracket', 'Frame'], inplace=True)
+
+    # Get unique dot-bracket structures for color coding
+    unique_structures = structures_df['DotBracket'].unique()
+    structure_colors = [f'rgb{tuple(int(255 * x) for x in plt.cm.tab20b(i)[:3])}' for i in np.linspace(0, 1, len(unique_structures))]
+    color_dict = dict(zip(unique_structures, structure_colors))
+
+    # Create traces for each structure
+    traces = []
+    for i, dotbracket in enumerate(unique_structures):
+        structure_df = structures_df[structures_df['DotBracket'] == dotbracket]
+        x_values = []
+        y_values = []
+        # Track the previous frame for comparison
+        prev_frame = None
+        for _, row in structure_df.iterrows():
+            frame = row['Frame']
+            if prev_frame is not None and frame != prev_frame + 1:
+                # Add None to create gaps between structures
+                x_values.append(None)
+                y_values.append(None)
+            x_values.append(frame)
+            y_values.append(i + 1 - 0.2)  # Adjust the y-value slightly for better visualization
+            prev_frame = frame
+        trace = go.Scatter(
+            x=x_values,
+            y=y_values,
+            mode='lines',
+            line=dict(color=color_dict[dotbracket], width=8),
+            name=dotbracket
+        )
+        traces.append(trace)
+
+    # Layout
+    layout = go.Layout(
+        title='Timeline of RNA Structures',
+        xaxis=dict(
+            title='Frame',
+            showgrid=False,
+            zeroline=False,
+            showline=False
+        ),
+        yaxis=dict(
+            title='Dot-Bracket Structure',
+            tickmode='array',
+            tickvals=list(range(1, len(unique_structures) + 1)),
+            ticktext=unique_structures,
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            ticklen=1
+        ),
+        showlegend=False,
+        plot_bgcolor='rgba(255, 255, 255, 0)'
+    )
+
+    # Plot
+    fig = go.Figure(data=traces, layout=layout)
     return fig
 
 def plot_torsion(torsion):
@@ -83,7 +162,7 @@ def upload_files():
     
     selected_plots = []
 
-    for plot in ['RMSD','ERMSD', 'TORSION', 'SEC_STRUCTURE', 'ANNOTATE', 'DS_MOTIF', 'SS_MOTIF','JCOUPLING','ESCORE']:  # Adjust based on your available plots
+    for plot in ['RMSD','ERMSD', 'TORSION', 'SEC_STRUCTURE','DOTBRACKET', 'ANNOTATE', 'DS_MOTIF', 'SS_MOTIF','JCOUPLING','ESCORE']:  # Adjust based on your available plots
         app.logger.info(plot)
         if plot.lower() in request.form:
             app.logger.info(request.form)
@@ -94,8 +173,6 @@ def upload_files():
     session['selected_plots'] = selected_plots
     app.logger.info(selected_plots)
     return redirect(url_for('view_trajectory', session_id=session_id, native_pdb=native_pdb.filename, traj_xtc=traj_xtc.filename))
-
-
 
 @app.route('/view-trajectory/<session_id>/<native_pdb>/<traj_xtc>')
 def view_trajectory(session_id, native_pdb, traj_xtc):
@@ -112,6 +189,7 @@ def view_trajectory(session_id, native_pdb, traj_xtc):
     # Retrieve selected plots from session data
     selected_plots = session.get('selected_plots', [])
     app.logger.info(selected_plots)
+    plot_data = []
     for plot in selected_plots:  # Adjust based on your available plots
         print(plot)
         app.logger.info(plot)
@@ -119,12 +197,16 @@ def view_trajectory(session_id, native_pdb, traj_xtc):
             # Perform specific action for RMSD plot
             #stackings, pairings, res = bb.annotate(traj_xtc.filename,native_pdb.filename)
             rmsd = bb.rmsd(native_pdb_path,traj_xtc_path,topology=native_pdb_path, heavy_atom=True)
-            selected_plots.append(plot)
+            fig = plot_rmsd(rmsd)
+            plotly_data = plotly_to_json(fig)
+            plot_data.append([plot, "scatter2", plotly_data])
+
         elif plot == 'ERMSD':
             # Need to be no accent in the path, else it crash
             ermsd = bb.ermsd(native_pdb_path,traj_xtc_path,topology=native_pdb_path)
             fig = plot_ermsd(ermsd)
             plotly_data = plotly_to_json(fig)
+            plot_data.append([plot, "scatter", plotly_data])
             app.logger.info(plotly_data)
 
         elif plot == 'TORSION':
@@ -138,8 +220,14 @@ def view_trajectory(session_id, native_pdb, traj_xtc):
             # Perform specific action for ANNOTATE plot
             stackings, pairings, res = bb.annotate(traj, topology=top)
             selected_plots.append(plot)
+        elif plot == 'DOTBRACKET':
+            stackings, pairings, res = bb.annotate(traj_xtc_path,topology=native_pdb_path)
+            dotbracket_data = bb.dot_bracket(pairings,res)[0]
+            fig = plot_dotbracket(dotbracket_data)
+            plotly_data = plotly_to_json(fig)
+            plot_data.append([plot, "dotbracket", plotly_data])
+
         elif plot == 'DS_MOTIF':
-            # Perform specific action for DS_MOTIF plot
             selected_plots.append(plot)
         elif plot == 'SS_MOTIF':
             # Perform specific action for SS_MOTIF plot
@@ -162,7 +250,7 @@ def view_trajectory(session_id, native_pdb, traj_xtc):
     
     # Generate or fetch plot filenames
     plot_filenames = [f'plot_{plot}.png' for plot in selected_plots]
-    return render_template('view_trajectory.html', session_id=session_id, native_pdb=native_pdb, traj_xtc=traj_xtc, plot_filenames=plot_filenames,graphJSON=plotly_data)
+    return render_template('view_trajectory.html', session_id=session_id, native_pdb=native_pdb, traj_xtc=traj_xtc, plot_filenames=plot_filenames,graphJSON=plotly_data, plot_data=plot_data)
 
 
 
