@@ -1,0 +1,15 @@
+<div class="box mt-5">
+  <div class="flex-container">
+    <div id="{{ plot_info[0] }}" class="plot"></div>
+  </div>
+  <div id="{{ plot_info[1] }}"></div>
+  <script>
+    var plotData = {{ plot_info[2] | safe }};
+    Plotly.newPlot('{{ plot_info[1] }}', plotData, {});
+  </script>
+  
+  <a href="{{ url_for('download_plot_data', plot_id=plot_info[0], session_id=session_id) }}" class="button is-link">Download {{ plot_info[0] }} Data</a>
+  <a href="{{ url_for('download_plot', plot_id=plot_info[0], session_id=session_id) }}" class="button is-link">Download Plot</a>
+</div>
+</div>
+

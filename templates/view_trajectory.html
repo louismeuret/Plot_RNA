@@ -1,118 +1,191 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<h1 class="mt-5">Trajectory Viewer</h1>
-<div id="viewport" style="width:600px; height:400px;"></div>
 
-<div id="player-controls" style="margin-top: 10px;">
-    <input type="range" id="frame-slider" min="0" value="0" step="1" style="width: 80%;">
-    <button id="play-pause-button">Play</button>
-</div>
+<section class="section">
+  <div class="container">
+    <div class="content">
+    <h1 class="title">Trajectory Viewer</h1>
+
+    <h3 class="title">{{session_id}}</h1>
+
+
+    
+    <!-- Viewer Section -->
+    <div id="viewport" class="box" style="width: 100%; height: 400px;"></div>
+    
+    <!-- Player Controls -->
+    <div id="player-controls" class="field is-grouped is-grouped-centered mt-4">
+      <input type="range" id="frame-slider" min="0" max="{{ trajectory_length }}" value="0" step="1" class="slider is-fullwidth" style="width: 80%;">
+      <button id="play-pause-button" class="button is-primary ml-2">Play</button>
+    </div>
+    
+    <!-- Toggle Buttons -->
+    <div class="buttons is-centered mt-4">
+      <button id="toggleSpin" class="button">Spin On/Off</button>
+      <button id="toggleTheme" class="button">Light/Dark Background</button>
+      <button id="toggleRunMDs" class="button">Start/Stop MD</button>
+      <button id="toggleSideChains" class="button">Show/Hide Sidechains</button>
+    </div>
+    <div id="sortable-container">
+    <!-- Plots and Images -->
+  {% for plot_info in plot_data %}
+
+    {% if plot_info[0] == "TORSION" %}
+      {% include '_plot_torsion.html' %}
+
+    {% elif plot_info[0] == "LANDSCAPE_PLT" %}
+      {% include '_plot_landscape.html' %}
+
+    {% elif plot_info[0] == "RMSD" %}
+      {% include '_plot_rmsd.html' %}
+
+    {% elif plot_info[0] == "CONTACT_MAPS" %}
+      {% include '_plot_contacts.html' %}
+
+    {% else %}
+      {% include '_plot_default.html' %}
+    {% endif %}
+    {% endfor %}
+  </div>
+  </div>
+  </div>
+
+</section>
+<script>
+    $(document).ready(function() {
+      var sortable = new Sortable(document.getElementById('sortable-container'), {
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        handle: '.drag-handle', // Elements matching this selector will not be draggable
+        onEnd: function(evt) {
+          var itemEl = evt.item; // dragged HTMLElement
+          // You can save the new order here by sending an AJAX request to your server
+          // with the new order of elements.
+        }
+      });
+    });
+</script>
 
 <script>
-    var stage;
-    var player; // Define player variable globally
+  var stage;
+  var player; 
+  var trajComp; // To store the trajectory component
+  document.addEventListener("DOMContentLoaded", function () {
+    stage = new NGL.Stage("viewport");
+    var traj = "{{ url_for('static', filename=session_id + '/' + traj_xtc) }}";
+    var load = "{{ url_for('static', filename=session_id + '/' + native_pdb) }}";
+    if (load) {
+      stage.loadFile(load, { defaultRepresentation: true }).then(function (o) {
+        stage.setParameters({ backgroundColor: "white" });
+        stage.setParameters({ fogFar: 1000 });
+        stage.setParameters({ fogNear: 0 });
+        stage.setParameters({ clipFar: 1000 });
+        o.setName("simulation-name");
+        
+        NGL.autoLoad(traj).then(function (frames) {
+          
+          trajComp = o.addTrajectory(frames); 
+          trajComp.trajectory.setFrame(1); 
+          player = new NGL.TrajectoryPlayer(trajComp.trajectory, { interpolateType: "spline" });
 
-    document.addEventListener("DOMContentLoaded", function () {
-      stage = new NGL.Stage("viewport");
-      var load = "{{ url_for('static', filename=session_id + '/' + native_pdb) }}";
-      if( load ) stage.loadFile( load, { defaultRepresentation: true } ).then( function( comp ){comp.setName("simulation-name");} );
+          // Initialize slider value and max based on frames length
+          var frameSlider = document.getElementById('frame-slider');
+          console.log(frames.length)
+          frameSlider.value = 1;
 
-      var struc = "{{ url_for('static', filename=session_id + '/' + native_pdb) }}";
-      var traj = "{{ url_for('static', filename=session_id + '/' + traj_xtc) }}";
-      var deltaTime = NGL.getQuery( "dt" );
-      var timeOffset = NGL.getQuery( "to" );
-      if( deltaTime === undefined ) deltaTime = "0.00";
-      if( timeOffset === undefined ) timeOffset = "0.00";
-      if( struc ){
-        var params = { defaultRepresentation: true };
-        stage.loadFile( struc, params ).then( function( o ){
-          o.setName( "sim" );
-          o.addRepresentation( "licorice", {sele: "not hydrogen", visible: false} );
-          if( traj ) o.addTrajectory( traj, { centerPbc: true, superpose: true, removePbc: true, "deltaTime": parseFloat(deltaTime), "timeOffset": parseFloat(timeOffset) } );
-        } );
-      }
-      var toggleTheme = document.getElementById( "toggleTheme" );
-      var isLight = false;
-      toggleTheme.addEventListener( "click", function(){
-        if( !isLight ){
-          stage.setParameters( { backgroundColor: "white" } );
-          isLight = true;
-        }else{
-          stage.setParameters( { backgroundColor: "black" } );
-          isLight = false;
-        }
-      } );
-      var toggleSpin = document.getElementById( "toggleSpin" );
-      var isSpinning = false;
-      toggleSpin.addEventListener( "click", function(){
-        if( !isSpinning ){
-          stage.setSpin( [ 0, 1, 0 ], 0.01 );
-          isSpinning = true;
-        }else{
-          stage.setSpin( null, null );
-          isSpinning = false;
-        }
-      } );
-      var toggleSideChains = document.getElementById( "toggleSideChains" );
-      toggleSideChains.addEventListener( "click", function(){
-        stage.getRepresentationsByName( "licorice" ).list.forEach( function( repre ){
-          repre.setVisibility( !repre.visible );
-        } );
-      } );
-      var toggleRunMDs = document.getElementById( "toggleRunMDs" );
-      var isRunning = false;
-      toggleRunMDs.addEventListener( "click", function(){
-        var trajComp = stage.getComponentsByName("sim").list[0].trajList[0];
-        player = new NGL.TrajectoryPlayer(trajComp.trajectory, {interpolateType: "spline" }); // Assign to the global player variable
-        if( !isRunning ){
-          player.play();
-          isRunning = true;
-        }else{
-          player.play();
-          player.pause();
-          isRunning = false;
-        }
-      } );
+          // Update frame when slider value changes
+          frameSlider.addEventListener('input', updateFrame);
+        })
+      });
+    }
+
+    var toggleTheme = document.getElementById("toggleTheme");
+    var isLight = false;
+    toggleTheme.addEventListener("click", function () {
+      stage.setParameters({ backgroundColor: isLight ? "black" : "white" });
+      isLight = !isLight;
     });
-    
+
+    var toggleSpin = document.getElementById("toggleSpin");
+    var isSpinning = false;
+    toggleSpin.addEventListener("click", function () {
+      stage.setSpin(isSpinning ? null : [0, 1, 0], isSpinning ? null : 0.01);
+      isSpinning = !isSpinning;
+    });
+
+    var toggleSideChains = document.getElementById("toggleSideChains");
+    toggleSideChains.addEventListener("click", function () {
+      var representations = stage.getRepresentationsByName("licorice");
+      if (representations) {
+        representations.list.forEach(function (repre) {
+          repre.setVisibility(!repre.visible);
+        });
+      }
+    });
+
+    var toggleRunMDs = document.getElementById("toggleRunMDs");
+    var isRunning = false;
+    toggleRunMDs.addEventListener("click", function () {
+      if (trajComp) {
+        player = new NGL.TrajectoryPlayer(trajComp.trajectory, { interpolateType: "spline" });
+        if (!isRunning) {
+          player.play();
+        } else {
+          player.pause();
+        }
+        isRunning = !isRunning;
+      }
+    });
+
     function updateFrame(event) {
-        var frameIndex = parseInt(event.target.value);
-        player.setFrame(frameIndex);
+      var frameIndex = parseInt(event.target.value);
+      if (player) {
+        trajComp.trajectory.setFrame(frameIndex);
+        var frameSlider = document.getElementById('frame-slider');
+        frameSlider.value = frameIndex;
+      }
     }
 
     function togglePlayPause() {
+      if (player) {
         player.toggle();
         var playPauseButton = document.getElementById('play-pause-button');
         playPauseButton.textContent = player.isPlaying ? 'Pause' : 'Play';
+      }
     }
 
-    // Attach event listeners
-    document.getElementById('frame-slider').addEventListener('input', updateFrame);
+    // Attach event listener to play/pause button
     document.getElementById('play-pause-button').addEventListener('click', togglePlayPause);
+  });
 </script>
+<script>
+  $(document).ready(function(){
+      var socket = io.connect('http://' + document.domain + ':' + location.port);
 
-<div style="width:500px;">
-    <button id="toggleSpin">spin on/off</button>
-    <button id="toggleTheme">light/dark background</button>
-    <button id="toggleRunMDs">start/stop MD</button>
-    <button id="toggleSideChains">show/hide sidechains</button>
-  </div>
-</div>
+      $('#slider').on('input', function() {
+          var sliderValue = $(this).val();
+          socket.emit('slider_value', {value: sliderValue});
+      });
 
-<body>
-  {% for plot_info in plot_data %}
-      <div id='{{ plot_info[0] }}' class='plot'></div>
-      <div id='text_{{ plot_info[0] }}'>Custom text for {{ plot_info[0] }}</div>   
-      <div id="{{ plot_info[1] }}"></div>
-      <script>
-          var plotData = {{ plot_info[2] | safe }};
-          Plotly.plot('{{ plot_info[1] }}', plotData, {});
-      </script>
-  {% endfor %}
-</body>
+      socket.on('image_update', function(data) {
+          $('#dynamic-image').attr('src', data.image_url + '?' + new Date().getTime());
+      });
+  });
+</script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script> 
+<style>
+  .flex-container {
+    display: flex;
+    align-items: center; /* Align items vertically in the center */
+  }
+  .plot {
+    flex: 1; /* Allow the plot to take up available space */
+  }
+  .torsion-image {
+    margin-left: 10px;
+    max-width: 1000px;
+  }
 
-
+</style>
 {% endblock %}
-
-

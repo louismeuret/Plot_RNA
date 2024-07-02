@@ -6,8 +6,20 @@
     <title>File Upload</title>
     <!-- Bootstrap CSS -->
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <style>
+        #terminal-container {
+            width: 50%;
+            height: 300px;
+            margin: auto;
+            display: none; /* Hidden by default */
+        }
+    </style>
+    
 </head>
 <body>
+    <div id="terminal-container"></div>
     <div class="container">
         <h1>Upload Files</h1>
         <form action="{{ url_for('upload_files') }}" method="post" enctype="multipart/form-data">
@@ -23,6 +35,20 @@
                 <label for="trajPdb">Trajectory PDB File:</label>
                 <input type="file" class="form-control-file" id="trajPdb" name="trajPdb" accept=".pdb,.gro">
             </div>
+            <div class="form-group">
+                <label for="frameSettings">Frame Settings:</label>
+                <div class="row">
+                    <div class="col">
+                        <input type="number" class="form-control" placeholder="First Frame" name="firstFrame" id="firstFrame">
+                    </div>
+                    <div class="col">
+                        <input type="number" class="form-control" placeholder="Last Frame" name="lastFrame" id="lastFrame">
+                    </div>
+                    <div class="col">
+                        <input type="number" class="form-control" placeholder="Stride" name="stride" id="stride">
+                    </div>
+                </div>
+            </div>
             <h2>Select Plots:</h2>
             <div class="form-check">
                 <input type="checkbox" class="form-check-input" id="rmsd" name="rmsd" value="RMSD">
@@ -30,11 +56,20 @@
                 <input type="checkbox" class="form-check-input" id="ermsd" name="ermsd" value="ERMSD">
                 <label class="form-check-label" for="ermsd">ERMSD</label><br>
                 <input type="checkbox" class="form-check-input" id="torsion" name="torsion" value="TORSION">
-                <label class="form-check-label" for="torsion">TORSION</label><br>
+                <label class="form-check-label" for="torsion">TORSION</label>
+                <input type="text" class="form-control" id="torsionResidue" name="torsionResidue" placeholder="Residue name or index">
+                <br>
                 <input type="checkbox" class="form-check-input" id="sec_structure" name="sec_structure" value="SEC_STRUCTURE">
                 <label class="form-check-label" for="sec_structure">SEC_STRUCTURE</label><br>
                 <input type="checkbox" class="form-check-input" id="dotbracket" name="dotbracket" value="RMSD">
                 <label class="form-check-label" for="dotbracket">DOTBRACKET</label><br>
+
+                <input type="checkbox" class="form-check-input" id="arc" name="arc" value="ARC">
+                <label class="form-check-label" for="arc">ARC</label><br>
+
+                <input type="checkbox" class="form-check-input" id="contact_maps" name="contact_maps" value="CONTACT_MAPS">
+                <label class="form-check-label" for="contact_maps">CONTACT_MAPS</label><br>
+                
                 <input type="checkbox" class="form-check-input" id="annotate" name="annotate" value="ANNOTATE">
                 <label class="form-check-label" for="annotate">ANNOTATE</label><br>
                 <input type="checkbox" class="form-check-input" id="ds_motif" name="ds_motif" value="DS_MOTIF">
@@ -45,12 +80,71 @@
                 <label class="form-check-label" for="jcoupling">JCOUPLING</label><br>
                 <input type="checkbox" class="form-check-input" id="escore" name="escore" value="ESCORE">
                 <label class="form-check-label" for="escore">ESCORE</label><br>
+                <input type="checkbox" class="form-check-input" id="escore" name="landscape" value="LANDSCAPE">
+                <label class="form-check-label" for="landscape">LANDSCAPE</label>
+                <input type="text" class="form-control" id="landscape_stride" name="landscape_stride" placeholder="Precision of the Energy Landscape">
+                <br>
             </div>
-            <button type="submit" class="btn btn-primary">Upload</button>
+            <button type="submit" class="btn btn-primary" id = "submit_btn">Upload</button>
         </form>
+    <h2>Retrieve Previous Results</h2>
+    <form action="{{ url_for('retrieve_results') }}" method="get">
+        <div class="form-group">
+            <label for="oldSessionId">Old Session ID:</label>
+            <input type="text" class="form-control" id="oldSessionId" name="session_id" placeholder="Enter old session ID">
+        </div>
+        <button type="submit" class="btn btn-secondary">Retrieve Results</button>
+    </form>
     </div>
 
     <!-- Bootstrap JS (Optional) -->
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.6/dist/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.2.1/dist/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client/dist/socket.io.min.js"></script>
+    <button id="execute-btn">Execute terminal test button</button>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            console.log("Loaded website");
+            const sessionId = '{{ session_id }}';
+            const socket = io.connect('http://' + document.domain + ':' + location.port, {
+                query: 'session_id=' + sessionId
+            });
+    
+            socket.on('connect', function() {
+                console.log("Connected to server");
+                socket.emit('connection', {data: 'connected!'});
+            });
+    
+            const terminalContainer = document.getElementById('terminal-container');
+            const term = new Terminal();
+            term.open(terminalContainer);
+    
+            document.getElementById('submit_btn').addEventListener('click', () => {
+                socket.emit("go")
+                terminalContainer.style.display = 'block'; // Show the terminal
+                term.write('Hello');
+            });
+    
+            socket.on('command_output', (data) => {
+                term.write(data.output + '\r\n');
+                console.log("Received data", data);
+            });
+    
+            socket.on('show_terminal', (data) => {
+                term.write('here is the terminal');
+            });
+    
+            socket.on('close_terminal', () => {
+                setTimeout(() => {
+                    terminalContainer.style.display = 'none'; // Hide the terminal
+                }, 2000); // Hide terminal after 2 seconds
+            });
+        });
+    </script>
+    
+
+
 </body>
 </html>

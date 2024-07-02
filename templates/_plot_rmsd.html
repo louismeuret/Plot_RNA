@@ -1,0 +1,44 @@
+<div class="box mt-5">
+  <div class="flex-container">
+    <div id="{{ plot_info[0] }}" class="plot"></div>
+  </div>
+  <div id="{{ plot_info[1] }}"></div>
+  <div class="content">
+    <script>
+      console.log("HEY");
+      console.log("{{ explainations }}");
+    </script>
+    <h2>{{ explainations.get(plot_info[0]).title }}</h2>
+    <p>{{ explainations.get(plot_info[0]).content }}</p>
+    {% if explainations.get(plot_info[0]).formula != "" %}
+    <div class="formula">{{ explainations.get(plot_info[0]).formula | safe }}</div>
+    {% endif %}
+  </div>
+  <script>
+    var previousValue = 1;
+    var dataLength = {{ trajectory_length }};
+    var plotData = {{ plot_info[2] | safe }};
+    Plotly.newPlot('{{ plot_info[1] }}', plotData, {});
+
+    document.getElementById('frame-slider').addEventListener('input', function() {
+      var sliderValue = this.value;
+      console.log(sliderValue);
+      console.log(dataLength);
+      var update = {};
+
+      // Reset the color of the previous marker
+      update['marker.color[' + previousValue + ']'] = 'black';
+      // update['marker.size[' + previousValue + ']'] = 6;
+      // Set the color of the current marker
+      update['marker.color[' + sliderValue + ']'] = 'red';
+      // update['marker.size[' + sliderValue + ']'] = 12;
+
+      Plotly.restyle('{{ plot_info[1] }}', update);
+
+      previousValue = sliderValue;
+    });
+  </script>
+  <a href="{{ url_for('download_plot_data', plot_id=plot_info[0], session_id=session_id) }}" class="button is-link">Download {{ plot_info[0] }} Data</a>
+  <a href="{{ url_for('download_plot', plot_id=plot_info[0], session_id=session_id) }}" class="button is-link">Download Plot</a>
+</div>
+
